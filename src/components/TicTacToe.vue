@@ -19,7 +19,7 @@
     </div>
     
     <div class="buttonDiv">
-      <button type="button" onClick="startGame()">Replay</button>
+      <button type="button" @click="reset()">Replay</button>
     </div>
   </div>
 </template>
@@ -33,58 +33,142 @@ export default {
       cells: [['','',''],
               ['','',''],
               ['','','']],
+      gameover: false,
+      testResult:[],
     }
   },
   methods: {
+    reset () {
+      for (let row = 0; row<this.cells.length; row++) {
+        for (let col = 0; col<this.cells[row].length; col++){
+          this.$set(this.cells[row], col, '');
+        }
+      }
+      this.gameover = false;
+    },
     handleClick(index) {
-      if (this.cells[index.row][index.col] === ''){
-        this.turnPiece(index, 'X');
-        this.turnPiece(this.getAIindex(), 'O');
+      if (!this.gameover && this.cells[index.row][index.col] === ''){
+        this.turnPiece(index, 'O') && this.turnPiece(this.getAIindex(), 'X');
       }
     },
     turnPiece(index, role) {
       this.$set(this.cells[index.row], index.col, role);
+      this.steps -= 1;
+      if (this.checkGameOver(role, index)){
+        return false;
+      };
+      return true;
     },
     getAIindex() {
-      let index = {
-        col: -1,
-        row: 0
-      };
-      for (let i = 0; i<this.cells.length; i++) {
-          index.col = this.cells[i].findIndex((ele) => {
-            return ele === '';
-          });
-          if (index.col !== -1) {
-            index.row = i;
-            break;
-          }
-      }
-      return index
+      let result = this.miniMax(this.cells,'X');
+      return result.index;
     },
-    checkWin(role ,index) {
-      let resultRow = '';
-      let resultCol = '';
-      let resultDigLeft = '';
-      let resultDigRight = ''; 
-      for (let i =0; i<this.cells.length; i++) {
-        resultRow += this.cells[index.row][i];
-        resultCol += this.cells[i][index.col];
-      }
-      resultDigLeft = this.cells[0][0]+this.cells[1][1]+this.cells[2][2]
-      resultDigRight = this.cells[0][2]+this.cells[1][1]+this.cells[2][0]
-      if(resultRow == resultCol == resultDigLeft == resultDigRight == 'XXX' || resultRow == resultCol == resultDigLeft == resultDigRight == 'OOO'){
+    checkWin(cells, role) {
+      let winResult = [
+        cells[0][0]+cells[1][1]+cells[2][2],
+        cells[0][2]+cells[1][1]+cells[2][0],
+        cells[0][0]+cells[0][1]+cells[0][2],
+        cells[1][0]+cells[1][1]+cells[1][2],
+        cells[2][0]+cells[2][1]+cells[2][2],
+        cells[0][0]+cells[1][0]+cells[2][0],
+        cells[0][1]+cells[1][1]+cells[2][1],
+        cells[0][2]+cells[1][2]+cells[2][2]
+      ]
+
+      if (winResult.some((ele) => {return ele === 'XXX' || ele === 'OOO'})){
         return role;
       }
-      return '';
+      return false;
     },
-    checkTie() {
-
+    checkTie(cells) {
+      // console.log(cells);
+      for (let i = 0; i<cells.length; i++) {
+        if (cells[i].findIndex((ele) => {return ele === '';}) !== -1){
+          return false;
+        }
+      }
+      return 'Tie';
     },
-    checkGameOver() {
+    checkGameOver(role,index) {
+      if (this.checkWin(this.cells, role, index)){
+        alert(`${role} is win!`);
+        this.gameover = true;
+        return true;
+      } else if (this.checkTie(this.cells)){
+        alert('Tie!!!!');
+        this.gameover = true;
+        return true;
+      }
+      return false;
+    },
+    createNewCells(cells){
+      let newCells = [];
+      cells.forEach(row => {
+        let newRow = row.slice();
+        newCells.push(newRow);
+      });
+      return newCells;
+    },
 
+    checkScore(cells, role) {
+      const status = this.checkWin(cells, role) || this.checkTie(cells);
+      switch(status){
+        case 'X':
+          return 10
+        case 'O':
+          return -10
+        case 'Tie':
+          return 0
+      }
+      return false;
+    },
+
+    miniMax(cells, role) {
+      let newCells = this.createNewCells(cells);
+      let score = this.checkScore(newCells, role);          
+      if(score !== false) {
+        return {score:score};
+      }
+      let results = [];
+      for (let row = 0 ; row < newCells.length; row++){
+        for (let col = 0; col < newCells[row].length; col++) {
+          if (newCells[row][col] !== ''){
+            continue;
+          }
+          newCells[row][col] = role;
+          let index = {row,col};
+          let result = {};
+          result.index = index ;
+          // console.log(index);
+          if(role == 'X') {
+            result.score = this.miniMax(newCells, 'O').score;
+          } else {
+            result.score = this.miniMax(newCells, 'X').score;
+          }
+          results.push(result);
+        }
+      }
+      let bestMove;
+      if(role == 'X' ) {
+        let bestScore = -1000;
+        for (let i = 0; i< results.length; i++) {
+          if (results[i].score > bestScore) {
+            bestScore = results[i].score;
+            bestMove = i;
+          }
+        }
+      } else {
+        let bestScore = 1000;
+        for (let i = 0; i< results.length; i++) {
+          if (results[i].score < bestScore) {
+            bestScore = results[i].score;
+            bestMove = i;
+          }
+        }
+      }
+      return results[bestMove];
     }
   }
-  
 }
 </script>
 
